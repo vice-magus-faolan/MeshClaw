@@ -239,31 +239,31 @@ export async function handleMeshtasticInbound(params: {
       if (!dmAllowed) {
         if (dmPolicy === "pairing") {
           const normalizedId = normalizeMeshtasticNodeId(message.senderNodeId);
-          const { code, created } = await core.channel.pairing.upsertPairingRequest({
+          const { code } = await core.channel.pairing.upsertPairingRequest({
             channel: CHANNEL_ID,
             accountId: account.accountId,
             id: normalizedId,
             meta: { name: message.senderName || undefined },
           });
-          if (created) {
-            try {
-              const reply = core.channel.pairing.buildPairingReply({
-                channel: CHANNEL_ID,
-                idLine: `Your node ID: ${normalizedId}`,
-                code,
-              });
-              await deliverMeshtasticReply({
-                payload: { text: reply },
-                target: message.senderNodeId,
-                accountId: account.accountId,
-                sendReply: params.sendReply,
-                statusSink,
-              });
-            } catch (err) {
-              runtime.error?.(
-                `meshtastic: pairing reply failed for ${senderDisplay}: ${String(err)}`,
-              );
-            }
+          try {
+            // Re-send the active pairing code on retries so the sender is not
+            // left with a silent drop when they repeat the same DM.
+            const reply = core.channel.pairing.buildPairingReply({
+              channel: CHANNEL_ID,
+              idLine: `Your node ID: ${normalizedId}`,
+              code,
+            });
+            await deliverMeshtasticReply({
+              payload: { text: reply },
+              target: message.senderNodeId,
+              accountId: account.accountId,
+              sendReply: params.sendReply,
+              statusSink,
+            });
+          } catch (err) {
+            runtime.error?.(
+              `meshtastic: pairing reply failed for ${senderDisplay}: ${String(err)}`,
+            );
           }
         }
         runtime.log?.(`meshtastic: drop DM sender ${senderDisplay} (dmPolicy=${dmPolicy})`);

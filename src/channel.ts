@@ -10,7 +10,7 @@ import {
   resolveDefaultGroupPolicy,
   setAccountEnabledInConfigSection,
   type ChannelPlugin,
-} from "openclaw/plugin-sdk/irc";
+} from "./openclaw-compat.js";
 import {
   listMeshtasticAccountIds,
   resolveDefaultMeshtasticAccountId,

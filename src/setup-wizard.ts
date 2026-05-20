@@ -3,7 +3,7 @@ import {
   DEFAULT_ACCOUNT_ID,
   type DmPolicy,
   type WizardPrompter,
-} from "openclaw/plugin-sdk/irc";
+} from "./openclaw-compat.js";
 import {
   promptAccountId,
   promptChannelAccessConfig,

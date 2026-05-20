@@ -1,6 +1,7 @@
 import {
   GROUP_POLICY_BLOCKED_LABEL,
   createNormalizedOutboundDeliverer,
+  createReplyPrefixOptions,
   formatTextWithAttachmentLinks,
   logInboundDrop,
   resolveControlCommandGate,
@@ -11,8 +12,7 @@ import {
   type OutboundReplyPayload,
   type OpenClawConfig,
   type RuntimeEnv,
-} from "openclaw/plugin-sdk/irc";
-import { createReplyPrefixOptions } from "openclaw/plugin-sdk/matrix";
+} from "./openclaw-compat.js";
 import type { ResolvedMeshtasticAccount } from "./accounts.js";
 import {
   normalizeMeshtasticAllowlist,

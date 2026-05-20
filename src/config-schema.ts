@@ -5,7 +5,7 @@ import {
   ReplyRuntimeConfigSchemaShape,
   ToolPolicySchema,
   requireOpenAllowFrom,
-} from "openclaw/plugin-sdk/irc";
+} from "./openclaw-compat.js";
 import { z } from "zod";
 
 const MeshtasticGroupSchema = z

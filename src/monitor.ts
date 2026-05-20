@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createLoggerBackedRuntime, type RuntimeEnv } from "openclaw/plugin-sdk/irc";
+import { createLoggerBackedRuntime, type RuntimeEnv } from "./openclaw-compat.js";
 import { resolveMeshtasticAccount } from "./accounts.js";
 import { connectMeshtasticClient, DeviceStatus, SetOwnerRebootError, type MeshtasticClient } from "./client.js";
 import { handleMeshtasticInbound } from "./inbound.js";
@@ -144,15 +144,30 @@ async function monitorDevice(params: {
             if (!client) {
               return;
             }
+            const sendStartedAt = Date.now();
             // For DM replies, resolve node number from hex ID.
             // For group replies, broadcast to the same channel.
+            // For DMs, preserve the inbound channel index so the reply stays on
+            // the same shared channel the peer used to reach us.
             if (message.isGroup) {
               // Broadcast: fire-and-forget.  The SDK's sendText promise waits
               // for internal queue confirmation which may time out for broadcasts.
               // The radio sends the packet regardless, so we don't await.
-              client.sendText(text, undefined, false, message.channelIndex).catch((err) => {
-                logger.warn(`[${account.accountId}] broadcast send failed: ${err instanceof Error ? err.message : String(err)}`);
-              });
+              logger.info(
+                `[${account.accountId}] broadcast dispatch on channel ${message.channelIndex} (${text.length} chars)`,
+              );
+              client
+                .sendText(text, undefined, false, message.channelIndex)
+                .then((packetId) => {
+                  logger.info(
+                    `[${account.accountId}] broadcast accepted on channel ${message.channelIndex} in ${Date.now() - sendStartedAt}ms (packet=${packetId})`,
+                  );
+                })
+                .catch((err) => {
+                  logger.warn(
+                    `[${account.accountId}] broadcast send failed on channel ${message.channelIndex} after ${Date.now() - sendStartedAt}ms: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                });
             } else {
               // DM: fire-and-forget.  The SDK's sendText awaits ACK from the
               // target node; if ACK times out the promise rejects, but the radio
@@ -160,9 +175,21 @@ async function monitorDevice(params: {
               // subsequent reply chunks.
               const { hexToNodeNum } = await import("./normalize.js");
               const destNum = hexToNodeNum(target);
-              client.sendText(text, destNum, true).catch((err) => {
-                logger.warn(`[${account.accountId}] DM send failed to ${target}: ${err instanceof Error ? err.message : String(err)}`);
-              });
+              logger.info(
+                `[${account.accountId}] DM dispatch to ${target} on channel ${message.channelIndex} (${text.length} chars)`,
+              );
+              client
+                .sendText(text, destNum, true, message.channelIndex)
+                .then((packetId) => {
+                  logger.info(
+                    `[${account.accountId}] DM send completed to ${target} on channel ${message.channelIndex} in ${Date.now() - sendStartedAt}ms (packet=${packetId})`,
+                  );
+                })
+                .catch((err) => {
+                  logger.warn(
+                    `[${account.accountId}] DM send failed to ${target} on channel ${message.channelIndex} after ${Date.now() - sendStartedAt}ms: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                });
             }
             opts.statusSink?.({ lastOutboundAt: Date.now() });
             core.channel.activity.record({
@@ -289,8 +316,27 @@ async function monitorMqtt(params: {
           if (!mqttClient) {
             return;
           }
-          const channelName = message.isGroup ? message.channelName : undefined;
+          const sendStartedAt = Date.now();
+          const channelName = message.channelName;
+          if (message.isGroup) {
+            logger.info(
+              `[${account.accountId}] mqtt broadcast dispatch on channel ${channelName} (${text.length} chars)`,
+            );
+          } else {
+            logger.info(
+              `[${account.accountId}] mqtt DM dispatch to ${target}${channelName ? ` via ${channelName}` : ""} (${text.length} chars)`,
+            );
+          }
           await mqttClient.sendText(text, message.isGroup ? undefined : target, channelName);
+          if (message.isGroup) {
+            logger.info(
+              `[${account.accountId}] mqtt broadcast completed on channel ${channelName} in ${Date.now() - sendStartedAt}ms`,
+            );
+          } else {
+            logger.info(
+              `[${account.accountId}] mqtt DM send completed to ${target}${channelName ? ` via ${channelName}` : ""} in ${Date.now() - sendStartedAt}ms`,
+            );
+          }
           opts.statusSink?.({ lastOutboundAt: Date.now() });
           core.channel.activity.record({
             channel: "meshtastic",

@@ -5,5 +5,15 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {}
+  },
+  "channelConfigs": {
+    "meshtastic": {
+      "label": "Meshtastic",
+      "description": "LoRa mesh network channel plugin for serial, HTTP, or MQTT-connected Meshtastic devices.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
   }
 }

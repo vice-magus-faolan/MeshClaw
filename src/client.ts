@@ -121,8 +121,9 @@ export async function connectMeshtasticClient(
   } else {
     const { TransportHTTP } = await import("@meshtastic/transport-http");
     const address = options.httpAddress ?? "meshtastic.local";
-    const prefix = options.httpTls ? "https" : "http";
-    transport = await TransportHTTP.create(`${prefix}://${address}`);
+    // The Meshtastic HTTP SDK expects a bare host[:port] here and adds the
+    // scheme internally. Passing a full URL makes it resolve "http" as a host.
+    transport = await TransportHTTP.create(address, options.httpTls);
   }
 
   const device = new MeshDevice(transport);
